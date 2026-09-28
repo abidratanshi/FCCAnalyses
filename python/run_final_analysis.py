@@ -28,40 +28,17 @@ def get_entries(infilepath: str) -> tuple[int, int]:
     events_in_ttree = 0
 
     with ROOT.TFile(infilepath, 'READ') as infile:
-        #try:
-        #    events_processed = infile.Get('eventsProcessed').GetVal()
-        #except AttributeError:
-        #    LOGGER.warning('Input file is missing information about '
-        #                   'original number of events!')
-
-        #try:
-        #    events_in_ttree = infile.Get("events").GetEntries()
-        #except AttributeError:
-        #    LOGGER.error('Input file is missing "events" TTree!\nAborting...')
-        #    sys.exit(3)
+        try:
+            events_processed = infile.Get('eventsProcessed').GetVal()
+        except AttributeError:
+            LOGGER.warning('Input file is missing information about '
+                           'original number of events!')
 
         try:
-            events_processed_obj = infile.Get('eventsProcessed')
-            if events_processed_obj:
-                events_processed = events_processed_obj.GetVal()
-            else:
-                LOGGER.warning(f'Input file {infilepath} is missing "eventsProcessed".')
-
+            events_in_ttree = infile.Get("events").GetEntries()
         except AttributeError:
-            LOGGER.warning(f'Input file {infilepath} is missing information about original number of events!')
-
-        try:
-            events_ttree = infile.Get("events")
-            if events_ttree:
-                events_in_ttree = events_ttree.GetEntries()
-            else:
-                LOGGER.warning(f'Input file {infilepath} is missing "events" TTree! Skipping this file...')
-                return None, None
-
-        except AttributeError:
-            LOGGER.warning(f'Input file {infilepath} is missing "events" TTree! Skipping this file...')
-            return None, None
-
+            LOGGER.error('Input file is missing "events" TTree!\nAborting...')
+            sys.exit(3)
 
     return events_processed, events_in_ttree
 
@@ -120,8 +97,6 @@ def run(rdf_module, args):
 
     process_events = {}
     events_ttree = {}
-    process_events_test = {}
-    events_ttree_test = {}
     file_list = {}
     save_tab = []
     efficiency_list = []
@@ -174,12 +149,9 @@ def run(rdf_module, args):
                          infilepath)
         else:
             LOGGER.info('Open file:\n\t%s', infilepath)
-            process_events_test[process_name], events_ttree_test[process_name] = \
+            process_events[process_name], events_ttree[process_name] = \
                 get_entries(infilepath)
-            if process_events_test[process_name]is not None and events_ttree_test[process_name]is not None:
-                process_events[process_name], events_ttree[process_name] = \
-                get_entries(infilepath)
-                file_list[process_name].push_back(infilepath)
+            file_list[process_name].push_back(infilepath)
 
         indirpath = input_dir + process_name
         if os.path.isdir(indirpath):
@@ -189,10 +161,9 @@ def run(rdf_module, args):
                 info_msg += '\n\t' + filepath
                 chunk_process_events, chunk_events_ttree = \
                     get_entries(filepath)
-                if chunk_process_events is not None and chunk_events_ttree is not None:
-                    process_events[process_name] += chunk_process_events
-                    events_ttree[process_name] += chunk_events_ttree
-                    file_list[process_name].push_back(filepath)
+                process_events[process_name] += chunk_process_events
+                events_ttree[process_name] += chunk_events_ttree
+                file_list[process_name].push_back(filepath)
             LOGGER.info(info_msg)
 
     info_msg = 'Processed events:'
@@ -214,10 +185,9 @@ def run(rdf_module, args):
 
         if process_events[process_name] == 0:
             LOGGER.error('Can\'t scale histograms, the number of processed '
-                         'events for the process "%s" seems to be zero! Skipping file.',
+                         'events for the process "%s" seems to be zero!',
                          process_name)
-            #sys.exit(3)
-            continue
+            sys.exit(3)
 
         df = ROOT.ROOT.RDataFrame("events", file_list[process_name])
         define_list = get_element(rdf_module, "defineList", True)
@@ -363,7 +333,8 @@ def run(rdf_module, args):
                 if nevents_this_cut != 0:
                     # scientific notation - recomended for backgrounds
                     cuts_list.append(
-                        f'{nevents_this_cut:.2e}')# $\\pm$ {uncertainty:.2e}')
+                        f'{nevents_this_cut}') ######### using unformatted value for sig.py calculations
+                        # f'{nevents_this_cut:.2e}')# $\\pm$ {uncertainty:.2e}') 
                     # float notation - recomended for signals with few events
                     # cuts_list.append(
                     #     f'{neventsThisCut:.3f} $\\pm$ {uncertainty:.3f}')
